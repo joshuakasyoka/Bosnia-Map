@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>H2O Ground Facility</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- MapLibre GL (open-source, Mapbox-compatible) -->
+  <link
+    href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css"
+    rel="stylesheet"
+  />
+  <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
+
+  <style>
+    :root {
+      --bg: #050505;
+      --panel: #0a0a0a;
+      --panel-soft: #111;
+      --accent: #ffffff;
+      --accent-soft: #cfcfcf;
+      --text: #f5f5f5;
+      --muted: #a6a6a6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #050505;
+      color: var(--text);
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+    }
+
+    /* Top left brand panel */
+    .brand-panel {
+      position: absolute;
+      z-index: 2;
+      top: 12px;
+      left: 12px;
+      background: var(--panel);
+      border-radius: 0;
+      padding: 12px 16px;
+      border: 1px solid var(--text);
+      backdrop-filter: none;
+      max-width: min(360px, 90vw);
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      font-size: 14px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .brand-panel h1 {
+      margin: 6px 0 4px;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .brand-panel p {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* Controls bottom-left */
+    .controls {
+      position: absolute;
+      z-index: 2;
+      left: 12px;
+      bottom: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      max-width: min(360px, 100vw - 24px);
+    }
+
+    .btn {
+      border-radius: 0;
+      border: 1px solid var(--text);
+      padding: 10px 18px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      backdrop-filter: none;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .btn:hover {
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    /* Popup story styling override */
+    .maplibregl-popup-content {
+      background: var(--panel);
+      border-radius: 0;
+      border: 1px solid var(--text);
+      padding: 14px 16px;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .popup-heading {
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .popup-meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .popup-body {
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+
+    /* Modal for new story */
+    dialog {
+      border: 1px solid var(--text);
+      border-radius: 0;
+      padding: 0;
+      max-width: min(420px, 92vw);
+      background: var(--panel);
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: none;
+    }
+
+    .modal-inner {
+      padding: 16px 18px 14px;
+    }
+
+    .modal-inner h2 {
+      margin: 0 0 6px;
+      font-size: 16px;
+    }
+
+    .modal-inner p {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    label {
+      display: block;
+      margin: 8px 0 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    input[type="text"],
+    textarea {
+      width: 100%;
+      border-radius: 0;
+      border: 1px solid var(--text);
+      background: #050505;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 13px;
+      resize: vertical;
+      min-height: 40px;
+    }
+
+    textarea {
+      min-height: 90px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .badge-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 0;
+      border: 1px solid var(--text);
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .maplibregl-ctrl {
+      color: var(--text);
+    }
+
+    .maplibregl-ctrl-group {
+      border-radius: 0 !important;
+      background: var(--panel);
+      border: 1px solid var(--text);
+      box-shadow: none;
+    }
+
+    .maplibregl-ctrl-group button {
+      width: 36px;
+      height: 36px;
+      border-radius: 0;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      filter: invert(1);
+    }
+
+    .maplibregl-ctrl-group button:not(:last-child) {
+      border-bottom: 1px solid var(--text);
+    }
+
+    .maplibregl-ctrl-compass svg {
+      filter: invert(1);
+    }
+
+    .maplibregl-popup-tip {
+      border-top-color: var(--panel) !important;
+    }
+
+    @media (max-width: 600px) {
+      .brand-panel {
+        max-width: calc(100vw - 24px);
+      }
+      .controls {
+        left: 50%;
+        transform: translateX(-50%);
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <!-- Brand / description -->
+  <section class="brand-panel">
+    <div class="brand-title">H2O Ground Facility</div><br>
+    <p>What is the Map ?</p><br>
+    <p>This map is designed to show how rivers act as archives of memory, gathering the stories, experiences, and histories of the communities they pass through. By making these stories visible, we reveal that the river’s value extends far beyond economic metrics. The phrase “A River Should Not Flow For Nothing” reframes the idea of worth: rivers do not flow for nothing—they sustain culture, identity, ecology, and collective memory. Yet they will be made to flow for nothing if they continue to be governed solely by the economic interests of the elite.</p>
+  </section>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button id="addStoryBtn" class="btn">Add Story</button>
+    <button id="exportBtn" class="btn">Export Stories</button>
+  </div>
+
+  <!-- Modal -->
+  <dialog id="storyDialog">
+    <form method="dialog" class="modal-inner">
+      <h2>New Story</h2>
+      <p>Location selected on the map. Share how this water remembers.</p>
+
+      <label for="storyTitle">Title (optional)</label>
+      <input id="storyTitle" type="text" placeholder="Title" />
+
+      <label for="storyText">Story</label>
+      <textarea id="storyText" required
+        placeholder="Describe the river's memory."></textarea>
+
+      <span class="badge-info">
+        These stories remain in your browser unless you export the file.
+      </span>
+
+      <div class="modal-actions">
+        <button class="btn" value="cancel">Cancel</button>
+        <button id="saveStoryBtn" class="btn" value="default">Save Story</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+
+<script>
+  // --- Map setup (Dark basemap via Carto) ---------------------
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: {
+      version: 8,
+      sources: {
+        dark: {
+          type: 'raster',
+          tiles: [
+            'https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png'
+          ],
+          tileSize: 256,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://carto.com/attributions">CARTO</a>'
+        }
+      },
+      layers: [
+        {
+          id: 'dark-base',
+          type: 'raster',
+          source: 'dark'
+        }
+      ]
+    },
+    center: [17.9, 44.2], // Bosnia & Herzegovina
+    zoom: 7
+  });
+
+  // Add nav controls
+  map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+  // --- Data storage ------------------------------------------------------
+  const STORAGE_KEY = 'h2o-facility-stories';
+  let stories = loadStories();
+
+  function loadStories() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return {
+      type: 'FeatureCollection',
+      features: []
+    };
+  }
+
+  function saveStories() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stories));
+  }
+
+  // --- Map layers for stories -------------------------------------------
+  map.on('load', () => {
+    map.addSource('stories', {
+      type: 'geojson',
+      data: stories
+    });
+
+    // Monochrome markers
+    map.addLayer({
+      id: 'stories-dots',
+      type: 'circle',
+      source: 'stories',
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          3, 2.5,
+          8, 5,
+          12, 7
+        ],
+        'circle-color': '#ffffff',
+        'circle-opacity': 1,
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#000000'
+      }
+    });
+
+    map.addLayer({
+      id: 'stories-glow',
+      type: 'circle',
+      source: 'stories',
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          3, 4,
+          8, 10,
+          12, 16
+        ],
+        'circle-color': '#ffffff',
+        'circle-opacity': 0.08
+      }
+    });
+
+    map.on('click', 'stories-dots', (e) => {
+      const f = e.features[0];
+      const props = f.properties;
+      const title = props.title || 'Story';
+      const text = props.text || '';
+      const created = props.createdAt
+        ? new Date(props.createdAt).toLocaleString()
+        : '';
+
+      new maplibregl.Popup({ offset: 14 })
+        .setLngLat(f.geometry.coordinates)
+        .setHTML(
+          `<div class="popup-heading">${escapeHTML(title)}</div>
+           <div class="popup-meta">${created}</div>
+           <div class="popup-body">${escapeHTML(text)}</div>`
+        )
+        .addTo(map);
+    });
+
+    map.on('mouseenter', 'stories-dots', () => {
+      map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', 'stories-dots', () => {
+      map.getCanvas().style.cursor = '';
+    });
+
+    refreshSource();
+  });
+
+  function refreshSource() {
+    const src = map.getSource('stories');
+    if (src) src.setData(stories);
+  }
+
+  // --- Adding a story ----------------------------------------------------
+  const addBtn = document.getElementById('addStoryBtn');
+  const exportBtn = document.getElementById('exportBtn');
+
+  const dialogEl = document.getElementById('storyDialog');
+  const storyTitleEl = document.getElementById('storyTitle');
+  const storyTextEl = document.getElementById('storyText');
+  const saveStoryBtn = document.getElementById('saveStoryBtn');
+
+  let pendingLngLat = null;
+  let addMode = false;
+
+  addBtn.addEventListener('click', () => {
+    addMode = true;
+    addBtn.textContent = 'Place On Map';
+  });
+
+  map.on('click', (e) => {
+    if (!addMode) return;
+
+    pendingLngLat = [e.lngLat.lng, e.lngLat.lat];
+    storyTitleEl.value = '';
+    storyTextEl.value = '';
+    dialogEl.showModal();
+  });
+
+  saveStoryBtn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    if (!pendingLngLat) {
+      dialogEl.close();
+      return;
+    }
+
+    const storyText = storyTextEl.value.trim();
+    if (!storyText) return;
+
+    const feature = {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: pendingLngLat },
+      properties: {
+        id: crypto.randomUUID(),
+        title: storyTitleEl.value.trim() || 'Story',
+        text: storyText,
+        createdAt: new Date().toISOString()
+      }
+    };
+
+    stories.features.push(feature);
+    saveStories();
+    refreshSource();
+
+    pendingLngLat = null;
+    addMode = false;
+    addBtn.textContent = 'Add Story';
+    dialogEl.close();
+  });
+
+  dialogEl.addEventListener('close', () => {
+    if (addMode) {
+      addMode = false;
+      addBtn.textContent = 'Add Story';
+    }
+  });
+
+  // --- Export ------------------------------------------------------------
+  exportBtn.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(stories, null, 2)], {
+      type: 'application/json'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'h2o-facility-stories.geojson';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // --- Utility -----------------------------------------------------------
+  function escapeHTML(str) {
+    return String(str).replace(/[&<>"]/g, (ch) => {
+      return (
+        {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;'
+        }[ch] || ch
+      );
+    });
+  }
+</script>
+</body>
+</html>
